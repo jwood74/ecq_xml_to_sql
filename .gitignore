@@ -1,3 +1,7 @@
+#git ignore file
+/raw/*
+personal_options.rb
+
 *.gem
 *.rbc
 /.config
