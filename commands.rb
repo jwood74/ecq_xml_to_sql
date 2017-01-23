@@ -2,6 +2,9 @@ require 'net/http'
 require 'zip/zip'
 
 def sync_number(database,elec)
+	##A table is kept to record each sync
+	##This function simply finds out what number we are up to so that the ZIP and XML file
+	## can be saved with the appropriate number
 	numberss = SqlDatabase.runQuery("#{database}","select count(*) as syncs from #{elec}_syncs")
 	numberr = 1
 	numberss.each do | number |
@@ -12,6 +15,7 @@ def sync_number(database,elec)
 end
 
 def download_file
+	##Downlaod the XML zip file from location specificed in personal_options
 	log_report(1,'Starting the download process. First checking website.')
 
 	syncnumber = sync_number($database,$elec)
@@ -51,10 +55,13 @@ class ProcessXML
 		@xmlfile = xmlfile
 		log_report(5,"Connecting the XML file @ #{@xmlfile}")
 
-		@doc = Nokogiri::XML(File.open(@xmlfile)) do || config
+		@doc = Nokogiri::XML(File.open(@xmlfile)) do | config |
 			config.noblanks
 		end
 		@doc.remove_namespaces!
+
+		updated = @doc.at_xpath("//generationDateTime").text
+		sql_upload("insert into results." + $elec + "_syncs (updated) values (\'#{updated}\');")
 		return @doc
-	end
+	end 
 end

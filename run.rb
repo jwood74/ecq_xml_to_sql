@@ -6,6 +6,8 @@ require_relative 'personal_options'
 require_relative 'database'
 require_relative 'commands'
 
+xml = ProcessXML.new
+
 puts "Auto Election Upload for #{$elec}"
 #puts "Checking for RUN in download table"
 
@@ -17,6 +19,5 @@ if newf == false
 	puts "Nothing to download"
 	sleep(90)
 else
-	ProcessXML.loadXML
-	
+	xml.load_XML(newf)
 end
