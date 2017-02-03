@@ -14,25 +14,22 @@ puts "Auto Election Upload for #{$elec}"
 newf = reuse_file
 #newf = download_file
 
+create_syncs_table				#only creates if dones't exist
+
 if !newf
 	puts "Nothing to download"
-	sleep(90)
 else
 	#load_XML(newf)
 	if $run_method == 'setup'
-		#process_booths(@doc)
-		#process_candidates(@doc)
-		#process_districts(@doc)
+		process_booths(@doc)
+		process_candidates(@doc)
+		process_districts(@doc)
 		process_parties(@doc)
-		exit
-
+		create_results_table	#only creates if doesn't exist
+		create_votetypes_table	#only creates if doesn't exist
+		create_views			#drops view and recreates
 	elsif $run_method == 'results'
-		if $mysql_run
-
-
-		else
-
-
-		end
+		process_primaries(@doc)
+		process_tcp(@doc)
 	end
 end
