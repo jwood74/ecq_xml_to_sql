@@ -1,4 +1,4 @@
-require 'rubygems'
+#require 'rubygems'
 require 'mysql2'
 require 'net/ssh/gateway'
 
@@ -7,7 +7,7 @@ class SqlDatabase
 		#Uncomment the below bits if you need to connect via SSH
 		#gateway = Net::SSH::Gateway.new(
 		#  '192.168.40.100',	#The IP of the server
-		#  'jaxen'
+		#  'some_user'
 		# )
 		#sshtunnel = gateway.open('localhost', 3306, 3307)
 
