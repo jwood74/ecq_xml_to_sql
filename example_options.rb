@@ -42,3 +42,15 @@ $mysql_user = 'user'
 
 ## MySQL password
 $mysql_pass = 'pass'
+
+
+
+## Run Method
+$run_method = 'setup'
+## whether the code should be looping through the results, or running the setup code
+## setup			results
+
+
+## Testing?
+$testing = true
+## true or false 

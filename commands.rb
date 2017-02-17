@@ -60,7 +60,7 @@ def load_XML(xmlfile)
 	@doc.remove_namespaces!
 
 	updated = @doc.at_xpath("//generationDateTime").text
-	sql_upload("insert into results." + $elec + "_syncs (updated) values (\'#{updated}\');")
+	sql_upload("insert into " + $elec + "_syncs (updated) values (\'#{updated}\');")
 	return @doc
 end
 
