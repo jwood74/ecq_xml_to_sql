@@ -2,7 +2,7 @@
 
 ### What is this repository for? ###
 
-* Download an XML file from Electoral Commission in regards to an election event
+* Download an XML file from WA Electoral Commission in regards to an election event
 * Parse the XML file and upload it into MySQL table
 * Version 1
 
