@@ -31,7 +31,9 @@ end
 def sql_upload(sql)
 	#If you want to upload data to multiple MySQL servers, replicatate the below line for each server
 	#You will also need to add a Class for each server in the database.rb
+
 	SqlDatabase.runQuery($database,sql)
+	WADatabase.runQuery('election_night',sql)
 end
 
 
@@ -59,7 +61,7 @@ end
 def reuse_file
 	##This function is used to connect an existing XML file
 	##during testing, rather than download new ones
-	@xmlfile = $location + "/raw/7.xml"
+	@xmlfile = $location + "/raw/17.xml"
 	log_report(5,@xmlfile)
 
 	@doc = Nokogiri::XML(File.open(@xmlfile)) do | config |
@@ -82,10 +84,8 @@ end
 
 def create_views
 	sql = "drop view if exists vw_#{$elec}_results; CREATE VIEW `vw_#{$elec}_results` AS select `d`.`district_id` AS `district_id`,`d`.`district` AS `district`,`b`.`booth_id` AS `booth_id`,`b`.`name` AS `booth_name`,`c`.`ballot_position` AS `ballot_position`,`c`.`ballot_name` AS `ballot_name`,`c`.`party` AS `party`,`v`.`vote_type` AS `vote_type`,`v`.`type` AS `type`,`r`.`votes` AS `votes` from ((((`#{$elec}_results` `r` join `#{$elec}_booths` `b` on(((`r`.`district_id` = `b`.`district_id`) and (`r`.`booth_id` = `b`.`booth_id`)))) join `#{$elec}_districts` `d` on((`r`.`district_id` = `d`.`district_id`))) join `#{$elec}_candidates` `c` on(((`r`.`district_id` = `c`.`district_id`) and (`r`.`candidate_id` = `c`.`ballot_position`)))) join `#{$elec}_vote_types` `v` on((`r`.`vote_type` = `v`.`vote_type`)));"
-	puts sql
 	sql_upload(sql)
 	sql = "DROP VIEW IF EXISTS vw_#{$elec}_results_booth; CREATE VIEW `vw_#{$elec}_results_booth` AS SELECT `r`.`district_id` AS `district_id` , `r`.`district` AS `district` , `r`.`booth_id` AS `booth_id` , `r`.`booth_name` AS `booth_name` , sum( IF(((`r`.`party` = 'ALP') AND(`r`.`vote_type` = 1)) , `r`.`votes` , 0)) AS `fp_alp` , sum( IF(((`r`.`party` = 'LIB') AND(`r`.`vote_type` = 1)) , `r`.`votes` , 0)) AS `fp_lib` , sum( IF(((`r`.`party` = 'NAT') AND(`r`.`vote_type` = 1)) , `r`.`votes` , 0)) AS `fp_nat` , sum( IF(((`r`.`party` = 'GRN') AND(`r`.`vote_type` = 1)) , `r`.`votes` , 0)) AS `fp_grn` , sum( IF(((`r`.`party` = 'PHON') AND(`r`.`vote_type` = 1)) , `r`.`votes` , 0)) AS `fp_onp` , sum( IF((( `r`.`party` NOT IN( 'ALP' , 'LIB' , 'NAT' , 'GRN' , 'ONP' , 'INF')) AND(`r`.`vote_type` = 1)) , `r`.`votes` , 0)) AS `fp_oth` , sum( IF(((`r`.`party` = 'INF') AND(`r`.`vote_type` = 1)) , `r`.`votes` , 0)) AS `informal` , sum( IF(((`r`.`party` <> 'INF') AND(`r`.`vote_type` = 1)) , `r`.`votes` , 0)) AS `formal` , sum( IF((`r`.`vote_type` = 1) , `r`.`votes` , 0)) AS `total` , sum( IF(((`r`.`party` = 'EXH') AND(`r`.`vote_type` = 2)) , `r`.`votes` , 0)) AS `exhaust` , sum( IF(((`r`.`party` = 'ALP') AND(`r`.`vote_type` = 2)) , `r`.`votes` , 0)) AS `tcp_alp` , sum( IF(((`r`.`party` IN('LIB' , 'NAT')) AND(`r`.`vote_type` = 2)) , `r`.`votes` , 0)) AS `tcp_lnp` , sum( IF((`r`.`vote_type` = 2) AND r.party <> 'EXH' , `r`.`votes` , 0)) AS `tcp_votes` FROM `vw_#{$elec}_results` `r` GROUP BY `r`.`district_id` , `r`.`booth_id`;"
-	puts sql
 	sql_upload(sql)
 end
 
@@ -175,7 +175,8 @@ def add_special_booths(doc)
 
 	puts "Let's add those special booths."
 
-	sql = 'INSERT INTO #{$elec}_booths( district_id , booth_id , `name` , type) SELECT district_id , "SIR" , "Special Institutions, Hospitals & Remotes" , "special" FROM #{$elec}_districts UNION SELECT district_id , "AV" , "Absent Votes" , "special" FROM #{$elec}_districts UNION SELECT district_id , "PPV" , "Early Votes (In Person)" , "special" FROM #{$elec}_districts'
+	sql = "INSERT INTO #{$elec}_booths( district_id , booth_id , `name` , type) SELECT district_id , 'SIR' , 'Special Institutions, Hospitals & Remotes' , 'special' FROM #{$elec}_districts UNION SELECT district_id , 'AV' , 'Absent Votes' , 'special' FROM #{$elec}_districts UNION SELECT district_id , 'PPV' , 'Early Votes (In Person)' , 'special' FROM #{$elec}_districts;"
+	puts sql
 	sql_upload(sql)
 
 	puts "Special booths done."
@@ -197,7 +198,7 @@ def create_votetypes_table
 	rescue
 		sql = "CREATE TABLE #{$elec}_vote_types (`vote_type` int(11) NOT NULL AUTO_INCREMENT,`type` varchar(15) DEFAULT NULL, `description` varchar(60) DEFAULT NULL, PRIMARY KEY (`vote_type`), UNIQUE KEY `idx_type` (`type`)) ENGINE=InnoDB DEFAULT CHARSET=latin1;"
 		sql_upload(sql)
-		sql_upload("INSERT INTO #{$elec}_vote_types (`vote_type`, `type`, `description`) VALUES ('1', 'primary', 'primary votes for polling place'),('2', 'tcp', 'two candidate preferred for polling place'),(3,'inf','Informal Votes'),(4,'exh','Exhaust');")
+		sql_upload("INSERT INTO #{$elec}_vote_types (`vote_type`, `type`, `description`) VALUES ('1', 'primary', 'primary votes for polling place'),('2', 'tcp', 'two candidate preferred for polling place');")
 	end
 end
 
@@ -206,6 +207,7 @@ def process_primaries(doc)
 
 	puts "Processing the primary results"
 	sql = "INSERT INTO #{$elec}_results (district_id, booth_id, candidate_id, vote_type, votes, last_updated) VALUES "
+	tsql = ""
 
 	district = @doc.xpath("//ElectionRegion/ElectionDistrict")
 	district.each do | dis |
@@ -214,7 +216,7 @@ def process_primaries(doc)
 			boothcand = bth.xpath("./CandidateVotes")
 			boothcand.each do | cand |
 				prim = cand['Votes']
-				sql << "(\"#{dis['Code']}\",#{bth['OrdinaryPollingPlaceNumber']},#{cand['CandidateBallotPaperOrder']},1,#{prim},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
+				tsql << "(\"#{dis['Code']}\",#{bth['OrdinaryPollingPlaceNumber']},#{cand['CandidateBallotPaperOrder']},1,#{prim},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
 			end
 		end
 		special = dis.xpath("./LA/DistrictVotes[@CountDefinitionCode='LAPC']/CategoryVotes")
@@ -222,14 +224,19 @@ def process_primaries(doc)
 			boothcand = bth.xpath("./CandidateVotes")
 			boothcand.each do | cand |
 				prim = cand['Votes']
-				sql << "(\"#{dis['Code']}\",\"#{bth['CategoryCode']}\",#{cand['CandidateBallotPaperOrder']},1,#{prim},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
+				tsql << "(\"#{dis['Code']}\",\"#{bth['CategoryCode']}\",#{cand['CandidateBallotPaperOrder']},1,#{prim},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
 			end
-		end		
+		end
 	end
-	sql  = sql[0..-2]	#chop off the last comma
-	sql << " ON DUPLICATE KEY UPDATE votes = values(votes), last_updated = values(last_updated);"
-	sql_upload(sql)
-	puts "Primary complete."
+	if tsql == ""
+		puts "No Primary results"
+	else
+		sql << tsql
+		sql = sql[0..-2]	#chop off the last comma
+		sql << " ON DUPLICATE KEY UPDATE votes = values(votes), last_updated = values(last_updated);"
+		sql_upload(sql)
+		puts "Primary complete."
+	end
 end
 
 
@@ -238,22 +245,28 @@ def process_informals(doc)
 
 	puts "Processing the informal votes"
 	sql = "INSERT INTO #{$elec}_results (district_id, booth_id, candidate_id, vote_type, votes, last_updated) VALUES "
+	tsql = ""
 
 	district = @doc.xpath("//ElectionRegion/ElectionDistrict")
 	district.each do | dis |
 		booth = dis.xpath("./LA/DistrictVotes[@CountDefinitionCode='LAPC']/OrdinaryPollingPlaceVotes")
 		booth.each do | bth |
-			sql << "(\"#{dis['Code']}\",#{bth['OrdinaryPollingPlaceNumber']},98,1,#{bth['InformalVotes']},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
+			tsql << "(\"#{dis['Code']}\",#{bth['OrdinaryPollingPlaceNumber']},98,1,#{bth['InformalVotes']},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
 		end
 		special = dis.xpath("./LA/DistrictVotes[@CountDefinitionCode='LAPC']/CategoryVotes")
 		special.each do | bth |
-			sql << "(\"#{dis['Code']}\",\"#{bth['CategoryCode']}\",98,1,#{bth['InformalVotes']},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
+			tsql << "(\"#{dis['Code']}\",\"#{bth['CategoryCode']}\",98,1,#{bth['InformalVotes']},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
 		end		
 	end
-	sql  = sql[0..-2]	#chop off the last comma
-	sql << " ON DUPLICATE KEY UPDATE votes = values(votes), last_updated = values(last_updated);"
-	sql_upload(sql)
-	puts "Informals complete."
+	if tsql == ""
+		puts "No Informal Results"
+	else
+		sql << tsql
+		sql = sql[0..-2]	#chop off the last comma
+		sql << " ON DUPLICATE KEY UPDATE votes = values(votes), last_updated = values(last_updated);"
+		sql_upload(sql)
+		puts "Informals complete."
+	end
 end
 
 
@@ -262,6 +275,7 @@ def process_tcp(doc)
 
 	puts "Processing the tcp results"
 	sql = "INSERT INTO #{$elec}_results (district_id, booth_id, candidate_id, vote_type, votes, last_updated) VALUES "
+	tsql = ""
 
 	district = @doc.xpath("//ElectionRegion/ElectionDistrict")
 	district.each do | dis |
@@ -275,7 +289,7 @@ def process_tcp(doc)
 				else
 					tcp = tcp
 				end
-				sql << "(\"#{dis['Code']}\",#{bth['OrdinaryPollingPlaceNumber']},#{cand['CandidateBallotPaperOrder']},2,#{tcp},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
+				tsql << "(\"#{dis['Code']}\",#{bth['OrdinaryPollingPlaceNumber']},#{cand['CandidateBallotPaperOrder']},2,#{tcp},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
 			end
 		end
 		special = dis.xpath("./LA/DistrictVotes[@CountDefinitionCode='LAND']/CategoryVotes")
@@ -288,14 +302,19 @@ def process_tcp(doc)
 				else
 					tcp = tcp
 				end
-				sql << "(\"#{dis['Code']}\",\"#{bth['CategoryCode']}\",#{cand['CandidateBallotPaperOrder']},2,#{tcp},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
+				tsql << "(\"#{dis['Code']}\",\"#{bth['CategoryCode']}\",#{cand['CandidateBallotPaperOrder']},2,#{tcp},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
 			end
 		end			
 	end
-	sql  = sql[0..-2]	#chop off the last comma
-	sql << " ON DUPLICATE KEY UPDATE votes = values(votes), last_updated = values(last_updated);"
-	sql_upload(sql)
-	puts "TCP complete."
+	if tsql == ""
+		puts "No TCP Results"
+	else
+		sql << tsql
+		sql = sql[0..-2]	#chop off the last comma
+		sql << " ON DUPLICATE KEY UPDATE votes = values(votes), last_updated = values(last_updated);"
+		sql_upload(sql)
+		puts "TCP complete."
+	end
 end
 
 def process_exhaust(doc)
@@ -303,6 +322,7 @@ def process_exhaust(doc)
 
 	puts "Processing the exhausted votes"
 	sql = "INSERT INTO #{$elec}_results (district_id, booth_id, candidate_id, vote_type, votes, last_updated) VALUES "
+	tsql = ""
 
 	district = @doc.xpath("//ElectionRegion/ElectionDistrict")
 	district.each do | dis |
@@ -314,7 +334,7 @@ def process_exhaust(doc)
 			else
 				exh = exh
 			end
-			sql << "(\"#{dis['Code']}\",#{bth['OrdinaryPollingPlaceNumber']},99,2,#{exh},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
+			tsql << "(\"#{dis['Code']}\",#{bth['OrdinaryPollingPlaceNumber']},99,2,#{exh},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
 		end
 		special = dis.xpath("./LA/DistrictVotes[@CountDefinitionCode='LAND']/CategoryVotes")
 		special.each do | bth |
@@ -324,11 +344,16 @@ def process_exhaust(doc)
 			else
 				exh = exh
 			end
-			sql << "(\"#{dis['Code']}\",\"#{bth['CategoryCode']}\",99,2,#{exh},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
+			tsql << "(\"#{dis['Code']}\",\"#{bth['CategoryCode']}\",99,2,#{exh},str_to_date(\"#{bth['LastUpdated']}\",'%Y-%m-%dT%H:%i:%s')),"
 		end			
 	end
-	sql  = sql[0..-2]	#chop off the last comma
-	sql << " ON DUPLICATE KEY UPDATE votes = values(votes), last_updated = values(last_updated);"
-	sql_upload(sql)
-	puts "Exhaust complete."
+	if tsql == ""
+		puts "No Exhaust Results"
+	else
+		sql << tsql
+		sql = sql[0..-2]	#chop off the last comma
+		sql << " ON DUPLICATE KEY UPDATE votes = values(votes), last_updated = values(last_updated);"
+		sql_upload(sql)
+		puts "Exhaust complete."
+	end
 end
