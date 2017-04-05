@@ -357,3 +357,10 @@ def process_exhaust(doc)
 		puts "Exhaust complete."
 	end
 end
+
+def execute_merge
+	puts "Executing the merge of XML into results"
+	sql = "CALL xml_to_results;"
+	WADatabase.runQuery('election_night',sql)
+	puts "Function complete"
+end

@@ -37,5 +37,7 @@ else
 		process_informals(@doc)
 		process_tcp(@doc)
 		process_exhaust(@doc)
+		sleep(2)
+		execute_merge
 	end
 end
