@@ -17,8 +17,13 @@ $elec = 'elec'
 ## used to prefix each table
 ## e.g qld2015_ or fed2016_
 
+## district or ward
+$area = 'district'
+## State Elections use districts
+## Council Elections use wards
 
 ## do you want to use a MySQL table to determine if it should loop or not?
+## TODO
 $mysql_run = 'TRUE'
 ## it can just loop endlessly, or you could connect to MySQL table to check for RUN condition
 ## options are TRUE or FALSE
@@ -42,7 +47,6 @@ $mysql_user = 'user'
 
 ## MySQL password
 $mysql_pass = 'pass'
-
 
 
 ## Run Method

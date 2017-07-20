@@ -2,7 +2,7 @@
 
 require 'nokogiri'
 
-require_relative 'options'
+require_relative 'qld_options'
 require_relative 'database'
 require_relative 'commands'
 
@@ -11,10 +11,10 @@ puts "Auto Election Upload for #{$elec}"
 
 ## TODO insert a check if we should do the process
 
+create_syncs_table				#only creates if dones't exist
+
 #newf = reuse_file
 newf = download_file
-
-create_syncs_table				#only creates if dones't exist
 
 if !newf
 	puts "Nothing to download"
